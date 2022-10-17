@@ -1,0 +1,57 @@
+# Ejemplo variable: Presión a nivel del mar y viento a 500 mb
+#Graficando con Cartopy
+
+#Importando las librerías
+from netCDF4 import Dataset
+import matplotlib.pyplot as plt
+from matplotlib.cm import get_cmap
+import cartopy.crs as crs
+import cartopy.feature as cpf
+import cartopy.io.shapereader as shpreader # Import shapefiles
+import numpy as np 
+from wrf import (to_np, getvar, smooth2d, get_cartopy, latlon_coords,
+cartopy_xlim, cartopy_ylim)
+
+#Abriendo el archivo netCDF y asignando varibales
+# Open the NetCDF file
+ncfile = Dataset("wrfout_d01_2016-03-09_08_00_00")
+# Get the sea level pressure
+slp = getvar(ncfile, "slp")
+# Smooth the sea level pressure since it tends to be noisy near the mountains
+smooth_slp = smooth2d(slp, 3)
+# Get the latitude and longitude coordinate arrays
+lats, lons = latlon_coords(smooth_slp)
+
+#Gráficos
+# The WrfProj.cartopy() method returns a cartopy.crs projection object
+cart_proj = get_cartopy(smooth_slp)
+# Create a figure that's 10x10
+fig = plt.figure(figsize=(10,10))
+# Get the GeoAxes set to the projection used by WRF
+ax = plt.axes(projection=cart_proj)
+# Download and add the states and coastlines
+
+shapefile = list(shpreader.Reader('ne_10m_admin_1_states_provinces.shp').geometries())
+ax.add_geometries(shapefile, crs.PlateCarree(), edgecolor='white',facecolor='none', linewidth=1)
+
+# Add coastlines, borders and gridlines
+#ax.coastlines(resolution='10m', color='gold', linewidth=1)
+ax.add_feature(cpf.BORDERS, edgecolor='white', linewidth=1)
+ax.gridlines(color='black', alpha=0.5, linestyle='--', linewidth=1)
+
+# Make the contour outlines and filled contours for the smoothed sea level
+# pressure.
+plt.contour(to_np(lons), to_np(lats), to_np(smooth_slp), 10, colors="black",
+            transform=crs.PlateCarree())
+plt.contourf(to_np(lons), to_np(lats), to_np(smooth_slp), 10,
+             transform=crs.PlateCarree())
+             
+# Add a color bar
+plt.colorbar(ax=ax, shrink=.47)
+# Set the map limits
+ax.set_xlim(cartopy_xlim(smooth_slp))
+ax.set_ylim(cartopy_ylim(smooth_slp))
+# Add the gridlines
+#ax.gridlines()
+plt.title("Sea Level Pressure (hPa)")
+plt.show()
